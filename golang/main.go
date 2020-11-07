@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-
 	authToken, exists := os.LookupEnv("NOTION_AUTH_TOKEN")
 	if !exists {
 		panic(errors.New("must be set NOTION_AUTH_TOKEN environment variables"))
