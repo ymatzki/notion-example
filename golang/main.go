@@ -19,11 +19,11 @@ func main() {
 		Logger:    os.Stdout,
 		DebugLog:  true,
 	}
-
 	pageID, exists := os.LookupEnv("NOTION_PAGE_ID")
 	if !exists {
 		panic(errors.New("must be set NOTION_PAGE_ID environment variables"))
 	}
+
 	page, err := client.DownloadPage(pageID)
 	if err != err {
 		panic(err)
@@ -36,19 +36,11 @@ func main() {
 
 	root := page.Root()
 
-	// Create new page
-	newBlock, newBlockOp := client.SetNewRecordOp(userResp.User.ID, root, notionapi.BlockPage)
-	ops := []*notionapi.Operation{newBlockOp}
-	ops = append(ops, newBlock.SetTitleOp(fmt.Sprintf("new page %d", now())))
-	ops = append(ops, root.ListAfterContentOp(newBlock.ID, ""))
-
-	// Add text in new page
-	childBlock, childBlockOp := client.SetNewRecordOp(userResp.User.ID, newBlock, notionapi.BlockText)
-	ops = append(ops, childBlockOp)
-	ops = append(ops, childBlock.SetTitleOp(fmt.Sprintf("new text %d", now())))
-	ops = append(ops, newBlock.ListAfterContentOp(childBlock.ID, ""))
-
-	err = client.SubmitTransaction(ops)
+	newBlock, err := addBlock(client, root, userResp.User.ID, notionapi.BlockPage, fmt.Sprintf("new page %d", now()))
+	if err != nil {
+		panic(err)
+	}
+	_, err = addBlock(client, newBlock, userResp.User.ID, notionapi.BlockText, fmt.Sprintf("new text %d", now()))
 	if err != nil {
 		panic(err)
 	}
@@ -56,4 +48,17 @@ func main() {
 
 func now() int64 {
 	return time.Now().Unix() * 1000
+}
+
+func addBlock(client *notionapi.Client, block *notionapi.Block, userID, recordType, title string) (*notionapi.Block, error) {
+	newBlock, newBlockOp := client.SetNewRecordOp(userID, block, recordType)
+	ops := []*notionapi.Operation{newBlockOp}
+	ops = append(ops, newBlockOp)
+	ops = append(ops, newBlock.SetTitleOp(title))
+	ops = append(ops, block.ListAfterContentOp(newBlock.ID, ""))
+	err := client.SubmitTransaction(ops)
+	if err != nil {
+		return nil, err
+	}
+	return newBlock, nil
 }
